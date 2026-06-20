@@ -3,6 +3,7 @@ export interface AuthUser {
   email: string;
   full_name?: string;
   avatar_url?: string;
+  phone?: string;
 }
 
 export interface Business {

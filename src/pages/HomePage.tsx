@@ -5,7 +5,8 @@ import StatsBanner from '@/components/features/StatsBanner';
 import TransactionList from '@/components/features/TransactionList';
 import DebtTracker from '@/components/features/DebtTracker';
 import BusinessSwitcher from '@/components/features/BusinessSwitcher';
-import { BarChart2, Bell } from 'lucide-react';
+import { BarChart2 } from 'lucide-react';
+import NotificationBell from '@/components/features/NotificationBell';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Business } from '@/types';
@@ -69,6 +70,9 @@ export default function HomePage() {
             >
               <BarChart2 className="w-4 h-4 text-blue-500" />
             </button>
+
+            {/* Notification Bell */}
+            <NotificationBell />
           </div>
         </div>
 

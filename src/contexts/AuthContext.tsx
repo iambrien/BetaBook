@@ -14,12 +14,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function mapUser(user: User): AuthUser {
+function mapUser(user: User, profile?: { full_name?: string; avatar_url?: string; phone?: string } | null): AuthUser {
   return {
     id: user.id,
     email: user.email!,
-    full_name: user.user_metadata?.full_name,
-    avatar_url: user.user_metadata?.avatar_url,
+    full_name: profile?.full_name || user.user_metadata?.full_name,
+    avatar_url: profile?.avatar_url || user.user_metadata?.avatar_url,
+    phone: profile?.phone,
   };
 }
 
@@ -30,21 +31,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted && session?.user) setUser(mapUser(session.user));
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (mounted && session?.user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('full_name, avatar_url, phone')
+          .eq('id', session.user.id)
+          .single();
+        if (mounted) setUser(mapUser(session.user, profile));
+      }
       if (mounted) setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
       if (event === 'SIGNED_IN' && session?.user) {
-        setUser(mapUser(session.user));
+        supabase.from('user_profiles').select('full_name, avatar_url, phone').eq('id', session.user.id).single().then(({ data: profile }) => {
+          if (mounted) setUser(mapUser(session.user, profile));
+        });
         setLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setLoading(false);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        setUser(mapUser(session.user));
+        setUser(prev => prev ? { ...prev } : mapUser(session.user));
       }
     });
 
@@ -110,7 +120,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: user!.email,
       full_name: data.full_name ?? user?.full_name,
       avatar_url: data.avatar_url ?? user?.avatar_url,
+      phone: data.phone ?? user?.phone,
     });
+    // Refresh local user state with latest profile
+    const { data: freshProfile } = await supabase
+      .from('user_profiles')
+      .select('full_name, avatar_url, phone')
+      .eq('id', user!.id)
+      .single();
+    if (freshProfile && updated.user) setUser(mapUser(updated.user, freshProfile));
   };
 
   return (

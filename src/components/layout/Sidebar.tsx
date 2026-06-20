@@ -67,10 +67,14 @@ export default function Sidebar({ onOpenPinModal }: SidebarProps) {
       <div className="px-3 py-4 border-t border-gray-100 space-y-1">
         {/* User info */}
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-50">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-blue-600 font-bold text-xs">
-              {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
-            </span>
+          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-blue-600 font-bold text-xs">
+                {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-gray-800 text-xs font-semibold truncate">
