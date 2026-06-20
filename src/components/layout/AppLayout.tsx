@@ -9,13 +9,20 @@ import ChatPage from '@/pages/ChatPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AttendantView from '@/pages/AttendantView';
 import AttendantPinModal from '@/components/features/AttendantPinModal';
+import CalculatorModal from '@/components/features/CalculatorModal';
+import CashInModal from '@/components/features/CashInModal';
+import CashOutModal from '@/components/features/CashOutModal';
 import { useState } from 'react';
+import { Calculator } from 'lucide-react';
 
 export default function AppLayout() {
   const { activeTab, isAttendantMode } = useApp();
   const [showPinModal, setShowPinModal] = useState(false);
   const [cashInOpen, setCashInOpen] = useState(false);
   const [cashOutOpen, setCashOutOpen] = useState(false);
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcPrefillIn, setCalcPrefillIn] = useState<number | undefined>();
+  const [calcPrefillOut, setCalcPrefillOut] = useState<number | undefined>();
 
   // ── Attendant Mode: completely locked UI ──────────────────────────────────
   if (isAttendantMode) {
@@ -29,13 +36,25 @@ export default function AppLayout() {
   // ── Owner Mode: full layout ───────────────────────────────────────────────
   const renderPage = () => {
     switch (activeTab) {
-      case 'home':         return <HomePage />;
-      case 'analytics':   return <AnalyticsPage />;
+      case 'home':          return <HomePage />;
+      case 'analytics':    return <AnalyticsPage />;
       case 'transactions': return <TransactionsPage />;
-      case 'chat':        return <ChatPage />;
-      case 'settings':    return <SettingsPage onOpenPinModal={() => setShowPinModal(true)} />;
-      default:            return <HomePage />;
+      case 'chat':         return <ChatPage />;
+      case 'settings':     return <SettingsPage onOpenPinModal={() => setShowPinModal(true)} />;
+      default:             return <HomePage />;
     }
+  };
+
+  const handleCalcCashIn = (amount: number) => {
+    setCalcPrefillIn(amount);
+    setCalcPrefillOut(undefined);
+    setCashInOpen(true);
+  };
+
+  const handleCalcCashOut = (amount: number) => {
+    setCalcPrefillOut(amount);
+    setCalcPrefillIn(undefined);
+    setCashOutOpen(true);
   };
 
   return (
@@ -62,10 +81,10 @@ export default function AppLayout() {
         <FABMenu
           cashInOpen={cashInOpen}
           cashOutOpen={cashOutOpen}
-          onCashIn={() => setCashInOpen(true)}
-          onCashOut={() => setCashOutOpen(true)}
-          onCashInClose={() => setCashInOpen(false)}
-          onCashOutClose={() => setCashOutOpen(false)}
+          onCashIn={() => { setCalcPrefillIn(undefined); setCashInOpen(true); }}
+          onCashOut={() => { setCalcPrefillOut(undefined); setCashOutOpen(true); }}
+          onCashInClose={() => { setCashInOpen(false); setCalcPrefillIn(undefined); }}
+          onCashOutClose={() => { setCashOutOpen(false); setCalcPrefillOut(undefined); }}
         />
       </div>
 
@@ -74,15 +93,59 @@ export default function AppLayout() {
         <FABMenu
           cashInOpen={cashInOpen}
           cashOutOpen={cashOutOpen}
-          onCashIn={() => setCashInOpen(true)}
-          onCashOut={() => setCashOutOpen(true)}
-          onCashInClose={() => setCashInOpen(false)}
-          onCashOutClose={() => setCashOutOpen(false)}
+          onCashIn={() => { setCalcPrefillIn(undefined); setCashInOpen(true); }}
+          onCashOut={() => { setCalcPrefillOut(undefined); setCashOutOpen(true); }}
+          onCashInClose={() => { setCashInOpen(false); setCalcPrefillIn(undefined); }}
+          onCashOutClose={() => { setCashOutOpen(false); setCalcPrefillOut(undefined); }}
           desktop
         />
       </div>
 
-      {/* Attendant PIN Modal — for both switching in and switching out */}
+      {/* ── Floating Calculator Button ─────────────────────────────────────── */}
+      {/* Mobile: sits left of the FAB */}
+      <button
+        onClick={() => setCalcOpen(true)}
+        className="md:hidden fixed bottom-[26px] right-6 z-[55] w-11 h-11 rounded-2xl bg-white border border-gray-200 shadow-lg flex items-center justify-center hover:bg-blue-50 hover:border-blue-200 transition-all active:scale-95"
+        title="Calculator"
+        aria-label="Open calculator"
+      >
+        <Calculator className="w-5 h-5 text-blue-500" />
+      </button>
+
+      {/* Desktop: sits left of FAB cluster */}
+      <button
+        onClick={() => setCalcOpen(true)}
+        className="hidden md:flex fixed bottom-[88px] right-8 z-40 w-11 h-11 rounded-2xl bg-white border border-gray-200 shadow-lg items-center justify-center hover:bg-blue-50 hover:border-blue-200 transition-all active:scale-95"
+        title="Calculator (keyboard supported)"
+        aria-label="Open calculator"
+      >
+        <Calculator className="w-5 h-5 text-blue-500" />
+      </button>
+
+      {/* Override FAB-managed modals when prefilled from calc */}
+      {cashInOpen && (
+        <CashInModal
+          onClose={() => { setCashInOpen(false); setCalcPrefillIn(undefined); }}
+          initialAmount={calcPrefillIn}
+        />
+      )}
+      {cashOutOpen && (
+        <CashOutModal
+          onClose={() => { setCashOutOpen(false); setCalcPrefillOut(undefined); }}
+          initialAmount={calcPrefillOut}
+        />
+      )}
+
+      {/* Calculator Modal */}
+      {calcOpen && (
+        <CalculatorModal
+          onClose={() => setCalcOpen(false)}
+          onUseCashIn={handleCalcCashIn}
+          onUseCashOut={handleCalcCashOut}
+        />
+      )}
+
+      {/* Attendant PIN Modal */}
       {showPinModal && (
         <AttendantPinModal onClose={() => setShowPinModal(false)} />
       )}

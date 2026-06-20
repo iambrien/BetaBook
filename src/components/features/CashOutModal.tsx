@@ -6,15 +6,15 @@ import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 import { X, TrendingDown } from 'lucide-react';
 
-interface Props { onClose: () => void; }
+interface Props { onClose: () => void; initialAmount?: number; }
 
 const CATEGORIES = ['Rent', 'Stock', 'Transport', 'Power', 'Salary', 'Maintenance', 'Other'];
 
-export default function CashOutModal({ onClose }: Props) {
+export default function CashOutModal({ onClose, initialAmount }: Props) {
   const { user } = useAuth();
   const { activeBusinessId } = useApp();
   const qc = useQueryClient();
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : '');
   const [category, setCategory] = useState('Stock');
   const [notes, setNotes] = useState('');
 

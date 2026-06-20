@@ -6,13 +6,13 @@ import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 import { X, TrendingUp, User, Phone } from 'lucide-react';
 
-interface Props { onClose: () => void; }
+interface Props { onClose: () => void; initialAmount?: number; }
 
-export default function CashInModal({ onClose }: Props) {
+export default function CashInModal({ onClose, initialAmount }: Props) {
   const { user } = useAuth();
   const { activeBusinessId } = useApp();
   const qc = useQueryClient();
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(initialAmount ? String(initialAmount) : '');
   const [itemName, setItemName] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'credit'>('paid');
   const [customerName, setCustomerName] = useState('');
