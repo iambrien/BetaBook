@@ -6,8 +6,9 @@ import { useApp } from '@/contexts/AppContext';
 import { formatNaira, formatDate } from '@/lib/utils';
 import { Transaction } from '@/types';
 import ReceiptModal from '@/components/features/ReceiptModal';
+import EditTransactionModal from '@/components/features/EditTransactionModal';
 import {
-  Search, TrendingUp, TrendingDown, Receipt, Trash2,
+  Search, TrendingUp, TrendingDown, Receipt, Trash2, Pencil,
   ChevronDown, X, Calendar, Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -60,6 +61,7 @@ export default function TransactionsPage() {
   const [customTo, setCustomTo] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
 
@@ -287,6 +289,7 @@ export default function TransactionsPage() {
                     key={tx.id}
                     tx={tx}
                     onViewReceipt={() => setReceiptTx(tx)}
+                    onEdit={() => setEditTx(tx)}
                     onDelete={() => setDeletingId(tx.id)}
                     deleting={deletingId === tx.id}
                     onConfirmDelete={() => deleteMutation.mutate(tx.id)}
@@ -302,6 +305,9 @@ export default function TransactionsPage() {
       {receiptTx && (
         <ReceiptModal transaction={receiptTx} onClose={() => setReceiptTx(null)} />
       )}
+      {editTx && (
+        <EditTransactionModal transaction={editTx} onClose={() => setEditTx(null)} />
+      )}
     </>
   );
 }
@@ -310,13 +316,14 @@ export default function TransactionsPage() {
 interface RowProps {
   tx: Transaction;
   onViewReceipt: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   deleting: boolean;
   onConfirmDelete: () => void;
   onCancelDelete: () => void;
 }
 
-function FullTransactionRow({ tx, onViewReceipt, onDelete, deleting, onConfirmDelete, onCancelDelete }: RowProps) {
+function FullTransactionRow({ tx, onViewReceipt, onEdit, onDelete, deleting, onConfirmDelete, onCancelDelete }: RowProps) {
   const isIncome = tx.type === 'income';
 
   if (deleting) {
@@ -375,6 +382,10 @@ function FullTransactionRow({ tx, onViewReceipt, onDelete, deleting, onConfirmDe
           <button onClick={onViewReceipt}
             className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-blue-50 hover:text-blue-500 text-gray-400 flex items-center justify-center transition-colors">
             <Receipt className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onEdit}
+            className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-amber-50 hover:text-amber-500 text-gray-400 flex items-center justify-center transition-colors">
+            <Pencil className="w-3.5 h-3.5" />
           </button>
           <button onClick={onDelete}
             className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-red-50 hover:text-red-500 text-gray-400 flex items-center justify-center transition-colors">

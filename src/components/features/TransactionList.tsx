@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { formatNaira, formatDate } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Clock, ChevronRight, Receipt } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, ChevronRight, Receipt, Pencil } from 'lucide-react';
 import { Transaction } from '@/types';
 import ReceiptModal from './ReceiptModal';
+import EditTransactionModal from './EditTransactionModal';
 
 export default function TransactionList() {
   const { user } = useAuth();
   const { activeBusinessId, setActiveTab } = useApp();
+  const qc = useQueryClient();
   const [receiptTx, setReceiptTx] = useState<Transaction | null>(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
 
   const { data: transactions = [], isLoading } = useQuery<Transaction[]>({
     queryKey: ['transactions-recent', user?.id, activeBusinessId],
@@ -63,7 +66,12 @@ export default function TransactionList() {
         ) : (
           <div className="divide-y divide-gray-50">
             {transactions.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} onViewReceipt={() => setReceiptTx(tx)} />
+              <TransactionRow
+                key={tx.id}
+                tx={tx}
+                onViewReceipt={() => setReceiptTx(tx)}
+                onEdit={() => setEditTx(tx)}
+              />
             ))}
             <button
               onClick={() => setActiveTab('transactions')}
@@ -78,14 +86,17 @@ export default function TransactionList() {
       {receiptTx && (
         <ReceiptModal transaction={receiptTx} onClose={() => setReceiptTx(null)} />
       )}
+      {editTx && (
+        <EditTransactionModal transaction={editTx} onClose={() => setEditTx(null)} />
+      )}
     </>
   );
 }
 
-function TransactionRow({ tx, onViewReceipt }: { tx: Transaction; onViewReceipt: () => void }) {
+function TransactionRow({ tx, onViewReceipt, onEdit }: { tx: Transaction; onViewReceipt: () => void; onEdit: () => void }) {
   const isIncome = tx.type === 'income';
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group">
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
         isIncome ? 'bg-emerald-50' : 'bg-red-50'
       }`}>
@@ -105,17 +116,23 @@ function TransactionRow({ tx, onViewReceipt }: { tx: Transaction; onViewReceipt:
           {tx.category && !tx.customer_name && <span className="text-gray-400 text-xs">{tx.category}</span>}
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <div className="text-right">
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="text-right mr-1">
           <p className={`font-semibold text-sm ${isIncome ? 'text-emerald-600' : 'text-red-500'}`}>
             {isIncome ? '+' : '−'}{formatNaira(tx.amount)}
           </p>
           <p className="text-gray-400 text-xs mt-0.5">{formatDate(tx.created_at)}</p>
         </div>
-        <button onClick={onViewReceipt}
-          className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center hover:bg-blue-50 hover:text-blue-500 text-gray-400 transition-colors ml-1">
-          <Receipt className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={onViewReceipt}
+            className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center hover:bg-blue-50 hover:text-blue-500 text-gray-400 transition-colors">
+            <Receipt className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onEdit}
+            className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center hover:bg-amber-50 hover:text-amber-500 text-gray-400 transition-colors">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
