@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,8 +9,11 @@ import CashOutModal from '@/components/features/CashOutModal';
 import CalculatorModal from '@/components/features/CalculatorModal';
 import {
   TrendingUp, TrendingDown, BookOpen, Building2, Clock,
-  Calculator, Home, List,
+  Calculator, Home, List, PieChart as PieChartIcon,
 } from 'lucide-react';
+import {
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 import { Transaction } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +69,28 @@ export default function AttendantView() {
 
   const todayInflow = recentTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const todayOutflow = recentTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  // Build chart data — income grouped as item name (or 'Sales'), expenses by category
+  const chartData = useMemo(() => {
+    const map: Record<string, { amount: number; type: 'income' | 'expense' }> = {};
+    recentTxns.forEach(tx => {
+      const label =
+        tx.type === 'income'
+          ? (tx.item_name?.trim() || 'Sales')
+          : (tx.category?.trim() || 'Other');
+      if (!map[label]) map[label] = { amount: 0, type: tx.type };
+      map[label].amount += tx.amount;
+    });
+    return Object.entries(map)
+      .map(([name, { amount, type }]) => ({ name, amount, type }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [recentTxns]);
+
+  const CHART_COLORS = [
+    '#10b981', '#3b82f6', '#f59e0b', '#ef4444',
+    '#8b5cf6', '#06b6d4', '#f97316', '#84cc16',
+    '#ec4899', '#14b8a6',
+  ];
 
   // Instant refresh after saving — used by modals via onClose
   const handleModalClose = (key: 'in' | 'out') => {
@@ -226,6 +251,68 @@ export default function AttendantView() {
                 <p className="text-red-600 font-bold text-base">{formatNaira(todayOutflow)}</p>
               </div>
             </div>
+
+            {/* Category Breakdown Chart */}
+            {chartData.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-50">
+                  <PieChartIcon className="w-4 h-4 text-gray-400" />
+                  <h3 className="font-semibold text-gray-800 text-sm">Category Breakdown</h3>
+                  <span className="ml-auto text-xs text-gray-400">Today</span>
+                </div>
+                <div className="px-2 py-3">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="amount"
+                        strokeWidth={2}
+                        stroke="#fff"
+                      >
+                        {chartData.map((_, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(val: number) => [formatNaira(val), 'Amount']}
+                        contentStyle={{
+                          background: '#fff',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        iconSize={8}
+                        formatter={(value) => (
+                          <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>{value}</span>
+                        )}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Centre label */}
+                  <p className="text-center text-xs text-gray-400 -mt-2 mb-1">
+                    {chartData.length} {chartData.length === 1 ? 'category' : 'categories'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {chartData.length === 0 && recentTxns.length === 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-8 text-center">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-2">
+                  <PieChartIcon className="w-5 h-5 text-blue-200" />
+                </div>
+                <p className="text-gray-400 text-xs">Chart will appear once entries are recorded</p>
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               {recentTxns.length === 0 ? (

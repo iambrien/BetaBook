@@ -9,7 +9,7 @@ import ReceiptModal from '@/components/features/ReceiptModal';
 import EditTransactionModal from '@/components/features/EditTransactionModal';
 import {
   Search, TrendingUp, TrendingDown, Receipt, Trash2, Pencil,
-  ChevronDown, X, Calendar, Filter,
+  ChevronDown, X, Calendar, Filter, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -64,6 +64,7 @@ export default function TransactionsPage() {
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [reportLoading, setReportLoading] = useState(false);
 
   const { data: transactions = [], isLoading } = useQuery<Transaction[]>({
     queryKey: ['transactions-all', user?.id, activeBusinessId],
@@ -131,6 +132,135 @@ export default function TransactionsPage() {
 
   const hasActiveFilter = dateRange !== 'all' || typeFilter !== 'all';
 
+  // ── End of Day Report ────────────────────────────────────────────────────
+  const generateDayReport = () => {
+    setReportLoading(true);
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayTxns = transactions.filter(tx => new Date(tx.created_at) >= todayStart);
+    const dayInflow = todayTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const dayOutflow = todayTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const net = dayInflow - dayOutflow;
+    const dateStr = now.toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
+
+    const rows = todayTxns.map((tx, i) => {
+      const timeLabel = new Date(tx.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
+      const label = tx.item_name || tx.category || (tx.type === 'income' ? 'Income' : 'Expense');
+      const customer = tx.customer_name ? `<span style="color:#9ca3af">${tx.customer_name}</span>` : '';
+      const status = tx.payment_status === 'credit' ? '<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">CREDIT</span>' : '';
+      const bgColor = i % 2 === 0 ? '#f8fafc' : '#ffffff';
+      const amtColor = tx.type === 'income' ? '#059669' : '#ef4444';
+      const sign = tx.type === 'income' ? '+' : '−';
+      return `<tr style="background:${bgColor}">
+        <td style="padding:10px 14px;font-size:12px;color:#6b7280">${timeLabel}</td>
+        <td style="padding:10px 14px;font-size:13px;color:#1f2937;font-weight:500">${label} ${customer} ${status}</td>
+        <td style="padding:10px 14px;font-size:12px;color:#6b7280">${tx.type === 'income' ? '📈 Income' : '📉 Expense'}</td>
+        <td style="padding:10px 14px;font-size:13px;font-weight:700;color:${amtColor};text-align:right">${sign}₦${tx.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</td>
+      </tr>`;
+    }).join('');
+
+    const noTxnMsg = todayTxns.length === 0
+      ? '<tr><td colspan="4" style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">No transactions recorded today</td></tr>'
+      : '';
+
+    const netColor = net >= 0 ? '#059669' : '#ef4444';
+    const netSign = net >= 0 ? '+' : '−';
+    const fmtN = (n: number) => `₦${Math.abs(n).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BetaBook — End of Day Report</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1f2937; }
+    @media print {
+      body { background: white; }
+      .no-print { display: none !important; }
+      .page { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; max-width: 100% !important; }
+    }
+    .page { max-width: 800px; margin: 24px auto; background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%); padding: 28px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header-left h1 { color: white; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .header-left p { color: rgba(255,255,255,0.75); font-size: 13px; margin-top: 4px; }
+    .header-right { text-align: right; color: rgba(255,255,255,0.85); font-size: 12px; line-height: 1.6; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-bottom: 1px solid #e5e7eb; }
+    .stat { padding: 20px 24px; border-right: 1px solid #e5e7eb; }
+    .stat:last-child { border-right: none; }
+    .stat .label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat .value { font-size: 20px; font-weight: 800; }
+    .stat.income .value { color: #059669; }
+    .stat.expense .value { color: #ef4444; }
+    .stat.net .value { color: ${netColor}; }
+    .section-header { padding: 16px 24px 12px; border-bottom: 1px solid #f1f5f9; }
+    .section-header h2 { font-size: 14px; font-weight: 700; color: #374151; }
+    .section-header span { font-size: 12px; color: #9ca3af; margin-left: 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 14px; background: #f1f5f9; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; }
+    thead th:last-child { text-align: right; }
+    .footer { padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+    .footer p { font-size: 11px; color: #9ca3af; }
+    .print-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; margin: 16px auto; display: block; width: fit-content; }
+    .print-btn:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="text-align:center;padding:16px">
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  </div>
+  <div class="page">
+    <div class="header">
+      <div class="header-left">
+        <h1>📒 BetaBook</h1>
+        <p>End of Day Report</p>
+      </div>
+      <div class="header-right">
+        <div style="font-weight:700;font-size:14px;color:white">${dateStr}</div>
+        <div>Generated at ${timeStr}</div>
+        <div>${todayTxns.length} transaction${todayTxns.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+    <div class="summary">
+      <div class="stat income"><div class="label">Total Inflow</div><div class="value">${fmtN(dayInflow)}</div></div>
+      <div class="stat expense"><div class="label">Total Outflow</div><div class="value">${fmtN(dayOutflow)}</div></div>
+      <div class="stat net"><div class="label">Net Balance</div><div class="value">${netSign}${fmtN(net)}</div></div>
+    </div>
+    <div class="section-header">
+      <h2>Transaction Log <span>${todayTxns.length} entries</span></h2>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Description</th>
+          <th>Type</th>
+          <th style="text-align:right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || noTxnMsg}
+      </tbody>
+    </table>
+    <div class="footer">
+      <p>BetaBook — Finance Manager for Market Traders</p>
+      <p>Confidential — For internal use only</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      // Auto-trigger print after render
+      win.addEventListener('load', () => win.print());
+    }
+    setReportLoading(false);
+  };
+
   return (
     <>
       <div className="min-h-full bg-slate-50">
@@ -141,6 +271,14 @@ export default function TransactionsPage() {
               <h2 className="text-gray-900 font-heading font-bold text-lg leading-none">Transactions</h2>
               <p className="text-gray-400 text-xs mt-0.5">{filtered.length} of {transactions.length} entries</p>
             </div>
+            <button
+              onClick={generateDayReport}
+              disabled={reportLoading || transactions.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold hover:bg-blue-100 transition-all active:scale-95 disabled:opacity-40 flex-shrink-0"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              {reportLoading ? 'Generating...' : 'Day Report'}
+            </button>
           </div>
 
           {/* Search + Filter Row */}
